@@ -128,3 +128,39 @@ button {
 main {
   flex: 1;
 }
+
+/* App specific dynamic logic */
+@media (min-width: 768px) {
+  .profile-layout {
+    grid-template-columns: 1.8fr 1.1fr !important;
+  }
+}
+
+@media (min-width: 800px) {
+  .mobile-filter-btn {
+    display: none !important;
+  }
+  .filters-sidebar {
+    display: block !important;
+  }
+}
+
+@media (max-width: 799px) { /* Móvil */
+  .filters-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 85%;
+    height: 100vh;
+    z-index: 1000;
+    background: white;
+    box-shadow: 10px 0 25px rgba(0,0,0,0.2) !important;
+    overflow-y: auto;
+  }
+}
+
+@media (min-width: 640px) {
+  .mobile-sticky-bar {
+    display: none !important;
+  }
+}
