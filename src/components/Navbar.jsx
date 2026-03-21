@@ -33,10 +33,14 @@ export default function Navbar() {
               </button>
             </div>
           ) : (
-            <Link to="/login" className="btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <User size={18} />
-              <span style={{ display: 'none', '@media(minWidth: 640px)': { display: 'block' } }}>Ingresar</span>
-            </Link>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <Link to="/login" className="btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none' }}>
+                <span style={{ fontWeight: 500 }}>Entrar</span>
+              </Link>
+              <Link to="/register" className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontWeight: 500 }}>Regístrate</span>
+              </Link>
+            </div>
           )}
         </nav>
       </div>
