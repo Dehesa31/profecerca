@@ -1,6 +1,6 @@
 import { useAuth } from '../contexts/AuthContext';
 import { useBookings } from '../contexts/BookingContext';
-import { Clock, Calendar, XCircle, MessageCircle, AlertTriangle } from 'lucide-react';
+import { Clock, Calendar, XCircle, MessageCircle, AlertTriangle, CheckCircle, TrendingUp, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
@@ -11,8 +11,18 @@ export default function Dashboard() {
     return <div style={{ textAlign: 'center', padding: '4rem' }}>Por favor, inicia sesión.</div>;
   }
 
-  // Filtrar correctamente por rol
-  const myBookings = bookings.filter(b => user.role === 'pro' ? b.proId === '1' : (b.clientId === user.id || b.clientId === 'usr_dummy'));
+  const myBookings = bookings.filter(b => user.role === 'pro' ? b.proId === '1' || b.proId === user.id : (b.clientId === user.id || b.clientId === 'usr_dummy'));
+
+  const pendingBookings = myBookings.filter(b => b.status === 'pendiente');
+  const confirmedBookings = myBookings.filter(b => b.status === 'confirmada');
+  const upcomingBookings = [...pendingBookings, ...confirmedBookings];
+  const pastBookings = myBookings.filter(b => b.status !== 'pendiente' && b.status !== 'confirmada');
+
+  const proRevenue = myBookings.filter(b => b.status === 'completada' || b.status === 'cancelada_cliente').reduce((acc, curr) => acc + (curr.price || (curr.type === 'individual' ? 25 : 15)), 0);
+
+  const handleStatusUpdate = (bId, status) => {
+    updateBookingStatus(bId, status, { by: user.role, reason: 'Manual Pro action' });
+  };
 
   const handleCancel = (booking) => {
     // Calculadora dinámica de márgenes de 24h
@@ -55,14 +65,33 @@ export default function Dashboard() {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem', paddingBottom: '5rem' }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 800 }}>Historial y Reservas</h1>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <h1 style={{ fontSize: '2rem', fontWeight: 800 }}>Panel de Control</h1>
         {user.role === 'pro' && (
           <Link to="/agenda" className="btn-primary">
             Planificar Agenda 🗓️
           </Link>
         )}
       </header>
+
+      {user.role === 'pro' && (
+        <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+          <div className="card" style={{ flex: 1, padding: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center', minWidth: '220px' }}>
+            <div style={{ padding: '1rem', backgroundColor: '#D1FAE5', borderRadius: '50%' }}><TrendingUp color="#10B981" size={24} /></div>
+            <div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.2rem' }}>Total Ingresos</p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 800 }}>{proRevenue}€</p>
+            </div>
+          </div>
+          <div className="card" style={{ flex: 1, padding: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center', minWidth: '220px' }}>
+            <div style={{ padding: '1rem', backgroundColor: '#DBEAFE', borderRadius: '50%' }}><Users color="#2563EB" size={24} /></div>
+            <div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.2rem' }}>Próximas Clases</p>
+              <p style={{ fontSize: '1.75rem', fontWeight: 800 }}>{upcomingBookings.length}</p>
+            </div>
+          </div>
+        </div>
+      )}
       
       {myBookings.length === 0 ? (
         <div className="glass-panel" style={{ padding: '3rem', textAlign: 'center', borderRadius: 'var(--radius-lg)' }}>
@@ -70,8 +99,31 @@ export default function Dashboard() {
           <Link to="/search" className="btn-primary" style={{ padding: '1rem 2rem' }}>Explorar Clases y Profes</Link>
         </div>
       ) : (
-        <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'minmax(0, 1fr)' }}>
-          {myBookings.map(b => {
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+          
+          {upcomingBookings.length > 0 && (
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--text-muted)' }}>Próximas Sesiones</h2>
+              <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'minmax(0, 1fr)' }}>
+                {upcomingBookings.map(b => renderBooking(b))}
+              </div>
+            </div>
+          )}
+
+          {pastBookings.length > 0 && (
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', color: 'var(--text-muted)' }}>Historial e Incidencias</h2>
+              <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'minmax(0, 1fr)' }}>
+                {pastBookings.map(b => renderBooking(b))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  function renderBooking(b) {
             const isCancelable = b.status === 'confirmada' || b.status === 'pendiente';
             const isCompleted = b.status === 'completada';
             const isCancelled = b.status.startsWith('cancelada') || b.status.startsWith('no_show');
@@ -127,6 +179,15 @@ export default function Dashboard() {
                         Evaluar ⭐
                       </Link>
                     )
+                  ) : b.status === 'pendiente' && user.role === 'pro' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <button className="btn-primary" style={{ padding: '0.8rem', backgroundColor: '#10B981', display: 'flex', justifyContent: 'center', gap: '0.5rem' }} onClick={() => handleStatusUpdate(b.id, 'confirmada')}>
+                        <CheckCircle size={18} /> Aceptar
+                      </button>
+                      <button className="btn-outline" style={{ padding: '0.8rem', borderColor: '#FCA5A5', color: '#EF4444', display: 'flex', justifyContent: 'center', gap: '0.5rem' }} onClick={() => handleStatusUpdate(b.id, 'cancelada_pro')}>
+                        <XCircle size={18} /> Rechazar
+                      </button>
+                    </div>
                   ) : isCancelable ? (
                     <button 
                       className="btn-outline" 
@@ -145,9 +206,5 @@ export default function Dashboard() {
                 </div>
               </div>
             )
-          })}
-        </div>
-      )}
-    </div>
-  );
+  }
 }

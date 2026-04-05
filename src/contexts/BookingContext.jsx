@@ -3,29 +3,32 @@ import { createContext, useContext, useState } from 'react';
 const BookingContext = createContext();
 
 export function BookingProvider({ children }) {
-  // Estado global simulado para las reservas
-  const [bookings, setBookings] = useState([
-    { id: 'b1', proId: '1', clientId: 'usr_dummy', date: new Date().toISOString().split('T')[0], time: '10:00', status: 'confirmada', type: 'individual', modality: 'Pista Exterior' },
-    { id: 'b2', proId: '1', clientId: 'usr_dummy_2', date: new Date(Date.now() + 86400000).toISOString().split('T')[0], time: '17:00', status: 'pendiente', type: 'grupal', modality: 'Domicilio' }
-  ]);
+  
+  // Leemos desde persistencia real local (Mock DB conectada al Vercel del cliente)
+  const [bookings, setBookingsState] = useState(() => JSON.parse(localStorage.getItem('profecerca_bookings') || '[]'));
+  const [proSettings, setProSettingsState] = useState(() => JSON.parse(localStorage.getItem('profecerca_settings') || '{}'));
 
-  // Configuraciones simuladas de los profesionales
-  const [proSettings, setProSettings] = useState({
-    '1': {
-      autoAccept: false,
-      maxGroupSize: 4,
-      availability: {
-        // Horarios estándar del profesional (simplificado para MVP)
-        default: ['09:00', '09:45', '10:30', '11:15', '16:00', '16:45', '17:30', '18:15'],
-        // Franjas bloqueadas manualmente ('YYYY-MM-DD-HH:MM')
-        blocked: [`${new Date().toISOString().split('T')[0]}-09:00`]
-      }
-    }
-  });
+  // Custom setters para persistir siempre en LocalStorage al mutar (para que cierre el navegador y no lo pierda)
+  const setBookings = (updater) => {
+     setBookingsState(prev => {
+        const next = typeof updater === 'function' ? updater(prev) : updater;
+        localStorage.setItem('profecerca_bookings', JSON.stringify(next));
+        return next;
+     });
+  };
+
+  const setProSettings = (updater) => {
+     setProSettingsState(prev => {
+        const next = typeof updater === 'function' ? updater(prev) : updater;
+        localStorage.setItem('profecerca_settings', JSON.stringify(next));
+        return next;
+     });
+  };
 
   const getAvailableSlots = (proId, dateString) => {
-    const settings = proSettings[proId] || proSettings['1'];
-    const allSlots = settings.availability.default;
+    // Si no tiene configurada o es nuevo pro, crearle un array en blanco para q no crashee
+    const settings = proSettings[proId] || { availability: { default: ['09:00', '10:00','17:00', '18:00'], blocked: [] }, maxGroupSize: 5 };
+    const allSlots = settings.availability.default || [];
     
     return allSlots.map(time => {
       const slotKey = `${dateString}-${time}`;
@@ -44,9 +47,9 @@ export function BookingProvider({ children }) {
           isAvailableForGrupal = false;
         } else {
           spotCount = existingBookings.filter(b => b.type === 'grupal').length;
-          isAvailableForIndividual = false; // Cannot book individually if at least one grupal spot is taken
+          isAvailableForIndividual = false; 
           if (spotCount >= settings.maxGroupSize) {
-            isAvailableForGrupal = false; // Class is full
+            isAvailableForGrupal = false; 
           }
         }
       }
@@ -62,8 +65,7 @@ export function BookingProvider({ children }) {
   };
 
   const requestBooking = (bookingData) => {
-    const settings = proSettings[bookingData.proId] || proSettings['1'];
-    // Validar de nuevo por seguridad
+    const settings = proSettings[bookingData.proId] || { autoAccept: true };
     const availableSlots = getAvailableSlots(bookingData.proId, bookingData.date);
     const slot = availableSlots.find(s => s.time === bookingData.time);
     
@@ -94,7 +96,7 @@ export function BookingProvider({ children }) {
   
   const toggleBlockSlot = (proId, dateString, time) => {
     setProSettings(prev => {
-      const pro = prev[proId] || prev['1']; // fallback mock
+      const pro = prev[proId] || { availability: { default: ['09:00', '10:00','17:00','18:00'], blocked: [] }, maxGroupSize: 5 };
       const key = `${dateString}-${time}`;
       const currentlyBlocked = pro.availability.blocked.includes(key);
       
@@ -114,16 +116,36 @@ export function BookingProvider({ children }) {
   };
 
   const addReview = (bookingId, role, rating, comment) => {
-    setBookings(prev => prev.map(b => {
-      if (b.id === bookingId) {
-        const existingReviews = b.reviews || [];
-        return {
-          ...b,
-          reviews: [...existingReviews, { role, rating, comment, date: new Date().toISOString() }]
-        };
+    setBookings(prev => {
+      let bookingTarget;
+      const nextBookings = prev.map(b => {
+        if (b.id === bookingId) {
+          bookingTarget = b;
+          const existingReviews = b.reviews || [];
+          return {
+            ...b,
+            reviews: [...existingReviews, { role, rating, comment, date: new Date().toISOString() }]
+          };
+        }
+        return b;
+      });
+
+      // Simular actualización del Rating Público del Profesional
+      if (bookingTarget && role === 'client') {
+        const profiles = JSON.parse(localStorage.getItem('profecerca_profiles') || '[]');
+        const updatedProfiles = profiles.map(p => {
+           if (p.id === bookingTarget.proId) {
+              const newTotal = (p.rating * p.reviewsCount) + rating;
+              const newCount = p.reviewsCount + 1;
+              return { ...p, rating: parseFloat((newTotal / newCount).toFixed(1)), reviewsCount: newCount };
+           }
+           return p;
+        });
+        localStorage.setItem('profecerca_profiles', JSON.stringify(updatedProfiles));
       }
-      return b;
-    }));
+
+      return nextBookings;
+    });
   };
 
   return (

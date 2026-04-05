@@ -57,9 +57,17 @@ export default function Review() {
       </div>
 
       <div className="card" style={{ padding: '2.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
+        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+           <img 
+              src={`https://i.pravatar.cc/150?u=${isClient ? booking.proId : booking.clientId}`} 
+              alt={targetName} 
+              style={{ width: '80px', height: '80px', borderRadius: '50%', marginBottom: '1rem', border: '3px solid var(--primary-light)' }} 
+           />
            <h3 style={{ fontSize: '1.3rem', fontWeight: 800 }}>¿Cómo fue la experiencia con {targetName}?</h3>
-           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+           <span style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary)', padding: '0.2rem 0.6rem', borderRadius: 'var(--radius-full)', fontSize: '0.8rem', fontWeight: 700, margin: '0.5rem 0' }}>
+             Clase {booking.type === 'individual' ? 'Privada' : 'Grupal'} - {booking.modality}
+           </span>
+           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
              {isClient ? <><Shield size={16} /> Tu reseña quedará fijada públicamente en su perfil.</> : <><Shield size={16} /> Evaluación restringida al equipo interno. Afecta al Ranking. </>}
            </p>
         </div>

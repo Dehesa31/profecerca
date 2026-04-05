@@ -4,64 +4,78 @@ const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Persistencia de base de datos Mock
+  const getUsers = () => JSON.parse(localStorage.getItem('profecerca_users') || '[]');
 
-  // Simulamos recuperar sesión persistente al abrir app (como middleware auth)
+  // Recupera la sesión al refrescar
   useEffect(() => {
-    const checkSession = () => {
-      const storedSession = localStorage.getItem('profecerca_session');
-      if (storedSession) {
-        setUser(JSON.parse(storedSession));
-      }
-      setLoading(false);
-    };
-    // Pequeño delay simulando verificación de token backend
-    setTimeout(checkSession, 500);
+    const savedUserId = localStorage.getItem('profecerca_session');
+    if (savedUserId) {
+      const users = getUsers();
+      const loadedUser = users.find(u => u.id === savedUserId);
+      if (loadedUser) setUser(loadedUser);
+    }
   }, []);
 
-  const login = async (email, password, role) => {
-    setLoading(true);
-    // Simular llamada API
-    await new Promise(res => setTimeout(res, 800));
+  const login = (email, password) => {
+    const users = getUsers();
+    const found = users.find(u => u.email === email && u.password === password);
+    if (found) {
+      setUser(found);
+      localStorage.setItem('profecerca_session', found.id);
+      return { success: true, role: found.role };
+    }
+    return { success: false, error: 'Credenciales inválidas o usuario no encontrado.' };
+  };
+
+  const register = (data) => {
+    const users = getUsers();
+    if (users.find(u => u.email === data.email)) {
+      return { success: false, error: 'El email ya está registrado' };
+    }
     
-    // El objeto usuario base (Tabla de usuarios separada del Perfil como pediste)
-    const sessionUser = {
+    // Asignar rol explícito si no viene
+    const assignedRole = data.role || (data.isPro ? 'pro' : 'client');
+
+    const newUser = {
+      ...data,
+      role: assignedRole,
       id: `usr_${Date.now()}`,
-      email: email || 'usuario@ejemplo.com',
-      name: role === 'client' ? 'Juan Cliente' : (role === 'admin' ? 'Super Admin' : 'María Profesional'),
-      role: role,
-      avatar: `https://i.pravatar.cc/150?u=${role}`,
-      onboarded: false, // Variable clave para redirigir tras login al flujo de onboarding
-      phone_validated: role === 'pro' ? false : null,
-      email_verified: true
+      avatar: `https://i.pravatar.cc/150?u=${Date.now()}`
     };
 
-    localStorage.setItem('profecerca_session', JSON.stringify(sessionUser));
-    setUser(sessionUser);
-    setLoading(false);
-    return sessionUser;
-  };
+    users.push(newUser);
+    localStorage.setItem('profecerca_users', JSON.stringify(users));
+    
+    // Si crea una cuenta PRO, instanciamos mágicamente su Perfil Público y su Agenda
+    if (assignedRole === 'pro') {
+       const profiles = JSON.parse(localStorage.getItem('profecerca_profiles') || '[]');
+       profiles.push({
+          id: newUser.id, name: newUser.name, category: data.category || 'General', subcategory: 'Especialista', 
+          desc: 'Nuevo profesional en la plataforma. Dispuesto a ayudarte a mejorar.', rating: 0, reviewsCount: 0, distance: 5.0, 
+          priceIndividual: 20, priceGroup: 10, maxGroupSize: 5, type: 'ambos', level: 1, 
+          language: 'Español', modalities: [{type: 'Exterior', available:true}], coords: {lat: 40.4, lng: -3.7}, 
+          avatar: newUser.avatar, classesCompleted: 0, responseTime: '< 24 horas', cancellationPolicy: '24 horas'
+       });
+       localStorage.setItem('profecerca_profiles', JSON.stringify(profiles));
 
-  const register = async (email, password, role) => {
-    return login(email, password, role); // Para el MVP de frontend reutilizamos la lógica auth mockeada
-  };
+       const settings = JSON.parse(localStorage.getItem('profecerca_settings') || '{}');
+       settings[newUser.id] = { autoAccept: true, maxGroupSize: 5, availability: { default: ['09:00', '10:00', '17:00'], blocked: [] } };
+       localStorage.setItem('profecerca_settings', JSON.stringify(settings));
+    }
 
-  const completeOnboarding = async (profileData) => {
-    setLoading(true);
-    await new Promise(res => setTimeout(res, 500));
-    const updatedUser = { ...user, onboarded: true, profile: profileData };
-    localStorage.setItem('profecerca_session', JSON.stringify(updatedUser));
-    setUser(updatedUser);
-    setLoading(false);
+    login(newUser.email, newUser.password);
+    return { success: true };
   };
 
   const logout = () => {
-    localStorage.removeItem('profecerca_session');
     setUser(null);
+    localStorage.removeItem('profecerca_session');
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, completeOnboarding, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, register }}>
       {children}
     </AuthContext.Provider>
   );

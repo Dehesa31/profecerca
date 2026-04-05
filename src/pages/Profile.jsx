@@ -4,36 +4,16 @@ import { Star, MapPin, Calendar, MessageCircle, Award, CheckCircle2, Clock, Glob
 export default function Profile() {
   const { id } = useParams();
   
-  // Datos simulados en base a tus especificaciones completas de UX y conversión
-  const pro = {
-    id: id || 1,
-    name: 'Carlos Martín',
-    photo: `https://i.pravatar.cc/150?u=${id || 1}`,
-    category: 'Pádel',
-    subcategories: ['Iniciación', 'Perfeccionamiento', 'Competición funcional'],
-    description: 'Entrenador nacional de pádel con 5 años de experiencia dando clases a todos los niveles. Me adapto a tu ritmo y objetivos diarios. Preparación física y técnica integrada. ¡Aseguro que sudarás y aprenderás divirtiéndote!',
-    experience: '5+ años de experiencia certificada',
-    languages: ['Español (Nativo)', 'Inglés (Fluido)'],
-    modalities: [
-      { type: 'En exterior / pista (incluye coste pista)', available: true },
-      { type: 'En mi domicilio/club Privado', available: false },
-      { type: 'A domicilio (urbanización del cliente)', available: true },
-      { type: 'Online', available: false }
-    ],
-    zone: 'Madrid Centro y Norte',
-    radius: 'Se desplaza hasta 15km',
-    city: 'Madrid',
-    priceIndividual: 25,
-    priceGroup: 15,
-    maxGroupSize: 4,
-    rating: 4.9,
-    reviewsCount: 124,
-    level: 5,
-    badges: [],
-    classesCompleted: 340,
-    responseTime: '< 1 hora media',
-    cancellationPolicy: 'Mínimo 24 horas antelación'
-  };
+  // Extraemos datos reales del semillero / base de datos
+  const storedProfiles = JSON.parse(localStorage.getItem('profecerca_profiles') || '[]');
+  const match = storedProfiles.find(p => p.id === id);
+
+  if (!match) {
+     return <div style={{textAlign:'center', padding:'4rem'}}>Perfil no encontrado. Puede que el profesional haya dado de baja su cuenta.</div>;
+  }
+
+  // Agregamos las propiedades dinámicas
+  const pro = { ...match, badges: [] };
 
   // Lógica de Niveles (Fase 9 PRD)
   const reputationalBadge = pro.rating >= 4.8 && pro.classesCompleted > 100 
@@ -47,7 +27,7 @@ export default function Profile() {
       
       {/* 1. CABECERA (Header Visual) */}
       <div className="card" style={{ padding: '2rem', display: 'flex', gap: '2rem', flexDirection: 'column', '@media(minWidth: 640px)': { flexDirection: 'row' } }}>
-        <img src={pro.photo} alt={pro.name} style={{ width: '130px', height: '130px', borderRadius: '50%', objectFit: 'cover', alignSelf: 'center', border: '4px solid var(--primary-light)' }} />
+        <img src={pro.avatar} alt={pro.name} style={{ width: '130px', height: '130px', borderRadius: '50%', objectFit: 'cover', alignSelf: 'center', border: '4px solid var(--primary-light)' }} />
         
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

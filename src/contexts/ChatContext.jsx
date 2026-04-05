@@ -6,27 +6,15 @@ const ChatContext = createContext();
 export function ChatProvider({ children }) {
   const { user } = useAuth();
   
-  // Listado de canales simulando una tabla de Base de Datos
-  const [channels, setChannels] = useState([
-    {
-      id: 'ch_1',
-      clientId: 'usr_dummy', // ID MOCK del client base
-      proId: '1',            // ID MOCK del pro base
-      clientName: 'Marta (Cliente)',
-      proName: 'Carlos Martín',
-      proAvatar: 'https://i.pravatar.cc/150?u=1',
-      clientAvatar: 'https://i.pravatar.cc/150?u=client',
-      lastMessage: 'Me parece genial, llevo entonces mi propia esterilla.',
-      lastMessageDate: new Date().toISOString(),
-      unreadCountPro: 1,
-      unreadCountClient: 0,
-      messages: [
-        { id: 1, senderId: 'usr_dummy', text: '¡Hola Carlos! Una duda antes de reservar el viernes, ¿las clases particulares en mi domicilio incluyen que traigas material o pongo yo el material deportivo?', timestamp: new Date(Date.now() - 3600000).toISOString() },
-        { id: 2, senderId: '1', text: '¡Hola Marta! Generalmente yo llevo cintas mecánicas e indumentaria de entreno. ¿Te parece bien si tú pones únicamente la esterilla base por temas de higiene?', timestamp: new Date(Date.now() - 3000000).toISOString() },
-        { id: 3, senderId: 'usr_dummy', text: 'Me parece genial, llevo entonces mi propia esterilla.', timestamp: new Date().toISOString() }
-      ]
-    }
-  ]);
+  const [channelsState, setChannelsState] = useState(() => JSON.parse(localStorage.getItem('profecerca_channels') || '[]'));
+
+  const setChannels = (updater) => {
+     setChannelsState(prev => {
+        const next = typeof updater === 'function' ? updater(prev) : updater;
+        localStorage.setItem('profecerca_channels', JSON.stringify(next));
+        return next;
+     });
+  };
 
   const sendMessage = (channelId, text, senderId) => {
     setChannels(prev => prev.map(ch => {
@@ -58,7 +46,7 @@ export function ChatProvider({ children }) {
   };
 
   const getOrCreateChannel = (clientId, proId, clientName, proName, clientAvg, proAvg) => {
-    const existing = channels.find(ch => ch.clientId === clientId && ch.proId === proId);
+    const existing = channelsState.find(ch => ch.clientId === clientId && ch.proId === proId);
     if (existing) return existing.id;
     
     // Si no han hablado nunca, se les crea un "túnel" de chat
@@ -80,8 +68,9 @@ export function ChatProvider({ children }) {
     return newId;
   };
 
+  // Pasar explicitamente channelsState en el proveedor pero como 'channels'
   return (
-    <ChatContext.Provider value={{ channels, sendMessage, markAsRead, getOrCreateChannel }}>
+    <ChatContext.Provider value={{ channels: channelsState, sendMessage, markAsRead, getOrCreateChannel }}>
       {children}
     </ChatContext.Provider>
   );

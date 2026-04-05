@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Star, MapPin, Filter, X, Navigation, SlidersHorizontal, ArrowUpDown, ChevronDown } from 'lucide-react';
+import { Star, MapPin, Filter, X, Navigation, SlidersHorizontal, ArrowUpDown, ChevronDown, Search as SearchIcon } from 'lucide-react';
 
 // Haversine formula para distancias reales
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
@@ -12,18 +12,16 @@ function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-// Catálogo Simulado Base (Datos Mocks de Profesionales con lat/lon aproximados en España)
-const initialPros = [
-  { id: 1, name: 'Carlos Martín', category: 'Pádel', desc: 'Entrenador nacional certificado.', rating: 4.9, reviews: 124, distance: 2.5, price: 25, type: 'individual', level: 5, language: 'Español', modality: 'Pista Exterior', coords: {lat: 40.4168, lng: -3.7038}, avatar: 'https://i.pravatar.cc/150?u=1' },
-  { id: 2, name: 'Laura Gómez', category: 'Yoga', desc: 'Vinyasa y Hatha Yoga relajante.', rating: 4.8, reviews: 89, distance: 1.2, price: 15, type: 'grupal', level: 4, language: 'Inglés', modality: 'Casa Profesional', coords: {lat: 40.4500, lng: -3.6900}, avatar: 'https://i.pravatar.cc/150?u=2' },
-  { id: 3, name: 'David Rodríguez', category: 'Apoyo Escolar', desc: 'Matemáticas y ciencias ESO/Bachiller.', rating: 4.5, reviews: 45, distance: 5.0, price: 20, type: 'individual', level: 3, language: 'Español', modality: 'Domicilio Cliente', coords: {lat: 40.4000, lng: -3.7100}, avatar: 'https://i.pravatar.cc/150?u=3' },
-  { id: 4, name: 'Elena Torres', category: 'Cocina', desc: 'Chef ex-Estrella Michelin. Trucos pro.', rating: 5.0, reviews: 200, distance: 8.5, price: 35, type: 'ambos', level: 5, language: 'Francés', modality: 'Casa Profesional', coords: {lat: 40.4800, lng: -3.6800}, avatar: 'https://i.pravatar.cc/150?u=4' },
-  { id: 5, name: 'Miguel Ángel', category: 'Pilates', desc: 'Máquinas y Suelo rehabilitador.', rating: 4.2, reviews: 110, distance: 0.5, price: 30, type: 'individual', level: 4, language: 'Español', modality: 'Exterior', coords: {lat: 40.4200, lng: -3.7000}, avatar: 'https://i.pravatar.cc/150?u=5' },
-];
+const getProfilesFromDB = () => JSON.parse(localStorage.getItem('profecerca_profiles') || '[]');
 
 export default function Search() {
   const [searchParams] = useSearchParams();
   const rawCat = searchParams.get('category');
+  const rawQ = searchParams.get('q') || '';
+  const rawLoc = searchParams.get('loc') || '';
+
+  const [q, setQ] = useState(rawQ);
+  const [loc, setLoc] = useState(rawLoc);
 
   // Filtros de Estado
   const [fCategory, setFCat] = useState(rawCat || 'Todas');
@@ -37,13 +35,12 @@ export default function Search() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [geoStatus, setGeoStatus] = useState('idle'); // idle, loading, active, denied
   
-  // Lista central de pros - mutada si el usuari se geolocaliza
-  const [pros, setPros] = useState([...initialPros]);
+  // Lista central de pros - recuperada de la BD real inyectada
+  const [pros, setPros] = useState(getProfilesFromDB());
 
   const toggleLocation = () => {
     if (geoStatus === 'active') {
-       // Reset mock
-       setPros([...initialPros]);
+       setPros(getProfilesFromDB());
        setGeoStatus('idle');
        return;
     }
@@ -56,7 +53,8 @@ export default function Search() {
           const userLng = position.coords.longitude;
           
           // Recalcular distancias dinámicas frente al punto real del user
-          const geolocatedPros = initialPros.map(p => ({
+          const initialProsLocal = getProfilesFromDB();
+          const geolocatedPros = initialProsLocal.map(p => ({
             ...p,
             distance: parseFloat(getDistanceFromLatLonInKm(userLat, userLng, p.coords.lat, p.coords.lng).toFixed(1))
           }));
@@ -78,9 +76,21 @@ export default function Search() {
 
   const filteredAndSortedPros = useMemo(() => {
     let result = pros.filter(p => {
+      if (q) {
+        const query = q.toLowerCase();
+        if (!p.category.toLowerCase().includes(query) && 
+            !p.subcategory.toLowerCase().includes(query) && 
+            !p.name.toLowerCase().includes(query)) {
+          return false;
+        }
+      }
+      if (loc && p.location) {
+        if (!p.location.toLowerCase().includes(loc.toLowerCase())) return false;
+      }
+      
       if (fCategory !== 'Todas' && p.category !== fCategory) return false;
       if (fType !== 'Todos' && p.type !== 'ambos' && p.type !== fType.toLowerCase()) return false;
-      if (p.price > fMaxPrice) return false;
+      if (p.priceIndividual > fMaxPrice) return false;
       if (p.rating < fMinRating) return false;
       if (p.distance > fMaxDistance) return false;
       if (fLang !== 'Todos' && p.language !== fLang) return false;
@@ -90,26 +100,40 @@ export default function Search() {
     result.sort((a, b) => {
       switch (sortBy) {
         case 'distance': return a.distance - b.distance;
-        case 'price_asc': return a.price - b.price;
+        case 'price_asc': return a.priceIndividual - b.priceIndividual;
         case 'rating_desc': return b.rating - a.rating;
         default: return b.level - a.level; // Relevance based on Pro Level
       }
     });
 
     return result;
-  }, [pros, fCategory, fType, fMaxPrice, fMinRating, fMaxDistance, fLang, sortBy]);
+  }, [pros, fCategory, fType, fMaxPrice, fMinRating, fMaxDistance, fLang, sortBy, q, loc]);
 
   return (
     <div style={{ padding: '0 0 4rem 0' }}>
       {/* Cabecera del Buscador con Geo */}
       <div style={{ backgroundColor: 'var(--primary)', padding: '2.5rem 1rem', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '1rem', textAlign: 'center' }}>Encuentra Profesionales Cerca de Ti</h1>
+        <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '1rem', textAlign: 'center', maxWidth: '600px' }}>Encuentra Profesionales Cerca de Ti</h1>
         
-        <div style={{ width: '100%', maxWidth: '600px', display: 'flex', gap: '0.5rem', background: 'white', padding: '0.5rem', borderRadius: 'var(--radius-full)', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)' }}>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', paddingLeft: '1rem', gap: '0.5rem' }}>
-            <MapPin color="var(--primary)" size={20} />
-            <input type="text" placeholder="Barrio, CP o ciudad..." style={{ border: 'none', outline: 'none', width: '100%', fontSize: '1rem', background: 'transparent', color: 'black' }} />
+        <div style={{ width: '100%', maxWidth: '800px', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <div style={{ flex: '1 1 500px', display: 'flex', background: 'white', padding: '0.5rem', borderRadius: 'var(--radius-full)', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2)' }}>
+            <datalist id="activities">
+              <option value="Pádel" />
+              <option value="Yoga" />
+              <option value="Pilates" />
+              <option value="Apoyo Escolar" />
+              <option value="Cocina" />
+            </datalist>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', paddingLeft: '1rem', gap: '0.5rem', borderRight: '1px solid var(--border-color)' }}>
+              <SearchIcon color="var(--primary)" size={20} />
+              <input type="text" list="activities" value={q} onChange={e => setQ(e.target.value)} placeholder="¿Qué quieres aprender?" style={{ border: 'none', outline: 'none', width: '100%', fontSize: '1rem', background: 'transparent', color: 'black' }} />
+            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', paddingLeft: '1rem', gap: '0.5rem' }}>
+              <MapPin color="var(--primary)" size={20} />
+              <input type="text" value={loc} onChange={e => setLoc(e.target.value)} placeholder="Barrio, CP o ciudad..." style={{ border: 'none', outline: 'none', width: '100%', fontSize: '1rem', background: 'transparent', color: 'black' }} />
+            </div>
           </div>
+          
           <button 
             onClick={toggleLocation}
             style={{ 
@@ -119,7 +143,7 @@ export default function Search() {
             }}
           >
             <Navigation size={18} /> 
-            <span style={{ display: 'none', '@media(minWidth: 640px)': { display: 'inline' } }}>
+            <span>
                {geoStatus === 'loading' ? 'Buscando...' : (geoStatus === 'active' ? 'Ubicación Activa' : 'Cerca de mí')}
             </span>
           </button>
@@ -261,7 +285,7 @@ export default function Search() {
                        <p style={{ color: 'var(--primary)', fontWeight: 600, fontSize: '0.9rem', marginBottom: '0.4rem' }}>{pro.category} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>• {pro.subcategory}</span></p>
                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.9rem', fontWeight: 700 }}>
                           <Star size={14} fill="#F59E0B" color="#F59E0B" style={{marginTop:'-2px'}} /> {pro.rating.toFixed(1)} 
-                          <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.8rem' }}>({pro.reviews})</span>
+                          <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '0.8rem' }}>({pro.reviewsCount})</span>
                        </div>
                      </div>
                    </div>
@@ -270,7 +294,7 @@ export default function Search() {
                       <p style={{ fontSize: '0.9rem', color: 'var(--text-main)', lineHeight: 1.5, flex: 1 }}>"{pro.desc}"</p>
                       
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                        <MapPin size={16} /> a {pro.distance} km <span style={{opacity:0.6}}>• {pro.modality}</span>
+                        <MapPin size={16} /> a {pro.distance} km <span style={{opacity:0.6}}>• {pro.modalities && pro.modalities.length > 0 ? pro.modalities[0].type : 'Disponible'}</span>
                       </div>
                    </div>
 

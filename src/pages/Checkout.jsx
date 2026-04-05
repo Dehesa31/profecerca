@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useBookings } from '../contexts/BookingContext';
-import { CreditCard, CheckCircle, ShieldCheck, Lock, Loader2 } from 'lucide-react';
+import { CreditCard, CheckCircle, ShieldCheck, Lock, Loader2, Bell } from 'lucide-react';
 
 export default function Checkout() {
   const location = useLocation();
@@ -11,6 +11,7 @@ export default function Checkout() {
   const bookingData = location.state?.bookingData;
   const [isProcessing, setIsProcessing] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
 
   if (!bookingData) {
     return (
@@ -21,7 +22,7 @@ export default function Checkout() {
     );
   }
 
-  const price = bookingData.type === 'individual' ? 25 : 15;
+  const price = bookingData.price || (bookingData.type === 'individual' ? 25 : 15);
   const targetName = bookingData.proName || 'Profesional';
 
   const handlePayment = (e) => {
@@ -37,7 +38,8 @@ export default function Checkout() {
         });
         setIsProcessing(false);
         setSuccess(true);
-        setTimeout(() => navigate('/dashboard'), 2500); // Redirect to Dashboard on validation
+        setTimeout(() => setShowNotification(true), 500); // 500ms after success screen
+        setTimeout(() => navigate('/dashboard'), 4000); // Wait 4s so user can read the notification
       } catch (err) {
         setIsProcessing(false);
         alert(err.message || "Error al procesar el pago");
@@ -48,13 +50,28 @@ export default function Checkout() {
 
   if (success) {
     return (
-      <div style={{ maxWidth: '500px', margin: '4rem auto', textAlign: 'center', padding: '3.5rem', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)' }} className="glass-panel">
-        <div style={{ width: '80px', height: '80px', backgroundColor: '#D1FAE5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem auto' }}>
-          <CheckCircle size={48} color="#10B981" />
+      <div style={{ position: 'relative', overflow: 'hidden' }}>
+        {/* Fake System Push Notification */}
+        <div style={{
+          position: 'fixed', top: '20px', right: '20px', backgroundColor: 'var(--surface)', padding: '1rem', borderRadius: 'var(--radius-md)', 
+          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', border: '1px solid var(--border-color)', display: 'flex', gap: '1rem', alignItems: 'flex-start',
+          transform: showNotification ? 'translateX(0)' : 'translateX(120%)', transition: 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)', zIndex: 1000
+        }}>
+          <div style={{ backgroundColor: '#DBEAFE', padding: '0.5rem', borderRadius: '50%', flexShrink: 0 }}><Bell size={18} color="#2563EB" /></div>
+          <div>
+            <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 700 }}>ProfeCerca App</h4>
+            <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Hemos notificado a <strong>{targetName}</strong> de tu solicitud. Los fondos están garantizados.</p>
+          </div>
         </div>
-        <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem' }}>¡Pago Autorizado!</h2>
-        <p style={{ color: 'var(--text-main)', fontSize: '1.1rem', marginBottom: '1.5rem' }}>Tu reserva está en marcha. Los fondos han sido asegurados de forma segura.</p>
-        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Redirigiendo a tu historial...</span>
+
+        <div style={{ maxWidth: '500px', margin: '4rem auto', textAlign: 'center', padding: '3.5rem', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)' }} className="glass-panel">
+          <div style={{ width: '80px', height: '80px', backgroundColor: '#D1FAE5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem auto' }}>
+            <CheckCircle size={48} color="#10B981" />
+          </div>
+          <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem' }}>¡Pago Autorizado!</h2>
+          <p style={{ color: 'var(--text-main)', fontSize: '1.1rem', marginBottom: '1.5rem' }}>Tu reserva está en marcha. Los fondos han sido asegurados de forma segura.</p>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Redirigiendo a tu historial en unos segundos...</span>
+        </div>
       </div>
     );
   }
@@ -72,7 +89,11 @@ export default function Checkout() {
           <div style={{ textAlign: 'center', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border-color)' }}>
             <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 600, display: 'block', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Total a pagar (Sujeto a Confirmación)</span>
             <span style={{ fontSize: '3.5rem', fontWeight: 800, color: 'var(--text-main)', display: 'block' }}>{price}€</span>
-            <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Sesión de 45 min el {bookingData.date} a las {bookingData.time}</span>
+            <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.5rem' }}>Sesión de 45 min el {bookingData.date} a las {bookingData.time}</span>
+            <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#FEF2F2', borderRadius: 'var(--radius-md)', border: '1px solid #FCA5A5' }}>
+              <span style={{ fontSize: '0.85rem', color: '#B91C1C', fontWeight: 600 }}>Políticas de Cancelación Flexibles</span>
+              <p style={{ fontSize: '0.8rem', color: '#7F1D1D', margin: '0.25rem 0 0 0' }}>Puedes cancelar gratis hasta 24 horas antes de la clase. Pasado este límite, asumiremos un recargo del 100% como penalización al profesional.</p>
+            </div>
           </div>
 
           <form onSubmit={handlePayment} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>

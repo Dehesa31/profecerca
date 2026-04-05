@@ -12,6 +12,7 @@ export default function Chat() {
   
   const [activeChannelId, setActiveChannelId] = useState(null);
   const [msgInput, setMsgInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Auto-enrutamiento si venimos de un perfil o reserva específica
@@ -48,6 +49,14 @@ export default function Chat() {
     if (!msgInput.trim() || !activeChannelId) return;
     sendMessage(activeChannelId, msgInput.trim(), user.id);
     setMsgInput('');
+    
+    // Simulate typing and auto-reply for interactivity MVP
+    setIsTyping(true);
+    setTimeout(() => {
+       setIsTyping(false);
+       const targetId = user.role === 'client' ? activeChannel.proId : activeChannel.clientId;
+       sendMessage(activeChannelId, user.role === 'client' ? "¡Acabo de leerlo! Lo reviso en un momento." : "Gracias por tu mensaje. Te digo algo ahora.", targetId);
+    }, 2500);
   };
 
   const selectChannel = (id) => {
@@ -126,8 +135,11 @@ export default function Chat() {
                 </button>
                 <img src={user.role === 'client' ? activeChannel.proAvatar : activeChannel.clientAvatar} alt="Avatar" style={{ width: '40px', height: '40px', borderRadius: '50%' }} />
                 <div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{user.role === 'client' ? activeChannel.proName : activeChannel.clientName}</h3>
-                  <span style={{ fontSize: '0.8rem', color: '#10B981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.2rem' }}>En línea</span>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>{user.role === 'client' ? activeChannel.proName : activeChannel.clientName}</h3>
+                  <div style={{ fontSize: '0.8rem', color: '#10B981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.2rem' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981', boxShadow: '0 0 0 2px #D1FAE5' }}></div>
+                    En línea • {user.role === 'client' ? 'Cuenta de Profesional' : 'Cliente Verificado'}
+                  </div>
                 </div>
               </div>
               <button style={{ backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', color: '#EF4444', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }} title="Reportar comportamiento inadecuado">
@@ -164,6 +176,18 @@ export default function Chat() {
                    </div>
                  )
                })}
+               
+               {isTyping && (
+                 <div style={{ alignSelf: 'flex-start', maxWidth: '75%', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                   <div style={{ 
+                     backgroundColor: 'white', color: 'var(--text-muted)', padding: '0.85rem 1.15rem', borderRadius: '18px 18px 18px 0',
+                     boxShadow: '0 1px 2px rgba(0,0,0,0.05)', border: '1px solid var(--border-color)', fontSize: '0.95rem', fontStyle: 'italic'
+                   }}>
+                     Escribiendo...
+                   </div>
+                 </div>
+               )}
+
                <div ref={messagesEndRef} />
             </div>
 

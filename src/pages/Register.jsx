@@ -7,18 +7,21 @@ export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [role, setRole] = useState('client');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if(!email || !pass) return alert("Rellena todos los campos");
+    if(!name || !email || !pass) return alert("Rellena todos los campos");
     
     setIsSubmitting(true);
-    await register(email, pass, role);
+    const res = await register({ name, email, password: pass, role });
     setIsSubmitting(false);
     
+    if(!res.success) return alert(res.error || "Error al registrar");
+
     // Una vez registrado, se envía al workflow de Onboarding para extender el perfil
     navigate('/onboarding');
   };
@@ -63,6 +66,14 @@ export default function Register() {
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Nombre Completo</label>
+          <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0 1rem', background: 'var(--surface)' }}>
+            <User size={18} color="var(--text-muted)" />
+            <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="Tu nombre y apellidos" style={{ width: '100%', padding: '0.9rem', border: 'none', outline: 'none', background: 'transparent' }} />
+          </div>
+        </div>
+
         <div>
           <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 500 }}>Correo Electrónico</label>
           <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0 1rem', background: 'var(--surface)' }}>
